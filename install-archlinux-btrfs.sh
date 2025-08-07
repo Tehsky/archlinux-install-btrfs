@@ -32,6 +32,10 @@ error() {
     exit 1
 }
 
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
     error "This script must be run as root. Please run with sudo or as root user."
@@ -308,20 +312,48 @@ echo
 # Partition the disk based on boot mode
 log "Partitioning disk $DISK for $BOOT_MODE mode..."
 
+# Unmount any existing partitions on the disk
+log "Unmounting any existing partitions..."
+umount ${DISK}* 2>/dev/null || true
+swapoff ${DISK}* 2>/dev/null || true
+
+# Wipe disk signatures and partition table
+log "Wiping disk signatures..."
+wipefs -af "$DISK"
+sgdisk --zap-all "$DISK" 2>/dev/null || true
+dd if=/dev/zero of="$DISK" bs=1M count=100 2>/dev/null || true
+
+# Wait for disk to settle and reload partition table
+sleep 3
+partprobe "$DISK" 2>/dev/null || true
+sleep 2
+
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     # UEFI partitioning scheme
+    log "Creating GPT partition table for UEFI..."
     parted -s "$DISK" mklabel gpt
     parted -s "$DISK" mkpart primary fat32 1MiB 512MiB
     parted -s "$DISK" set 1 esp on
     parted -s "$DISK" mkpart primary btrfs 512MiB 100%
 
-    # Determine partition names for UEFI
-    if [[ "$DISK" == *"nvme"* ]]; then
+    # Wait for partitions to be created
+    sleep 3
+    partprobe "$DISK" 2>/dev/null || true
+    sleep 2
+
+    # Determine partition names for UEFI (improved detection)
+    if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]] || [[ "$DISK" == *"loop"* ]]; then
         BOOT_PARTITION="${DISK}p1"
         ROOT_PARTITION="${DISK}p2"
     else
         BOOT_PARTITION="${DISK}1"
         ROOT_PARTITION="${DISK}2"
+    fi
+
+    # Verify partitions exist before formatting
+    if [[ ! -b "$BOOT_PARTITION" ]] || [[ ! -b "$ROOT_PARTITION" ]]; then
+        error "Partitions not found after creation. Boot: $BOOT_PARTITION, Root: $ROOT_PARTITION"
+        exit 1
     fi
 
     log "EFI partition: $BOOT_PARTITION"
@@ -334,15 +366,27 @@ if [[ "$BOOT_MODE" == "UEFI" ]]; then
 
 else
     # BIOS partitioning scheme
+    log "Creating MBR partition table for BIOS..."
     parted -s "$DISK" mklabel msdos
     parted -s "$DISK" mkpart primary btrfs 1MiB 100%
     parted -s "$DISK" set 1 boot on
 
-    # Determine partition names for BIOS
-    if [[ "$DISK" == *"nvme"* ]]; then
+    # Wait for partitions to be created
+    sleep 3
+    partprobe "$DISK" 2>/dev/null || true
+    sleep 2
+
+    # Determine partition names for BIOS (improved detection)
+    if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]] || [[ "$DISK" == *"loop"* ]]; then
         ROOT_PARTITION="${DISK}p1"
     else
         ROOT_PARTITION="${DISK}1"
+    fi
+
+    # Verify partition exists before formatting
+    if [[ ! -b "$ROOT_PARTITION" ]]; then
+        error "Root partition not found after creation: $ROOT_PARTITION"
+        exit 1
     fi
 
     log "Root partition: $ROOT_PARTITION"
@@ -354,38 +398,62 @@ fi
 
 # Mount root partition and create btrfs subvolumes
 log "Creating btrfs subvolumes..."
-mount "$ROOT_PARTITION" /mnt
+
+# Ensure /mnt is unmounted first
+umount /mnt 2>/dev/null || true
+
+# Mount root partition
+if ! mount "$ROOT_PARTITION" /mnt; then
+    error "Failed to mount root partition: $ROOT_PARTITION"
+    exit 1
+fi
 
 # Create subvolumes
+log "Creating btrfs subvolumes..."
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@var
 btrfs subvolume create /mnt/@tmp
 btrfs subvolume create /mnt/@snapshots
 
+# Unmount to remount with subvolumes
 umount /mnt
 
 # Mount subvolumes
 log "Mounting btrfs subvolumes..."
-mount -o noatime,compress=zstd,space_cache=v2,subvol=@ "$ROOT_PARTITION" /mnt
+if ! mount -o noatime,compress=zstd,space_cache=v2,subvol=@ "$ROOT_PARTITION" /mnt; then
+    error "Failed to mount root subvolume"
+    exit 1
+fi
 
+# Create mount points
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     mkdir -p /mnt/{boot,home,var,tmp,.snapshots}
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@home "$ROOT_PARTITION" /mnt/home
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@var "$ROOT_PARTITION" /mnt/var
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$ROOT_PARTITION" /mnt/tmp
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
-
-    # Mount EFI partition
-    mount "$BOOT_PARTITION" /mnt/boot
 else
     mkdir -p /mnt/{home,var,tmp,.snapshots}
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@home "$ROOT_PARTITION" /mnt/home
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@var "$ROOT_PARTITION" /mnt/var
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$ROOT_PARTITION" /mnt/tmp
-    mount -o noatime,compress=zstd,space_cache=v2,subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
+fi
 
-    # No separate boot partition for BIOS mode
+# Mount other subvolumes
+log "Mounting additional subvolumes..."
+mount -o noatime,compress=zstd,space_cache=v2,subvol=@home "$ROOT_PARTITION" /mnt/home
+mount -o noatime,compress=zstd,space_cache=v2,subvol=@var "$ROOT_PARTITION" /mnt/var
+mount -o noatime,compress=zstd,space_cache=v2,subvol=@tmp "$ROOT_PARTITION" /mnt/tmp
+mount -o noatime,compress=zstd,space_cache=v2,subvol=@snapshots "$ROOT_PARTITION" /mnt/.snapshots
+
+# Mount EFI partition for UEFI mode
+if [[ "$BOOT_MODE" == "UEFI" ]]; then
+    log "Mounting EFI partition..."
+    if ! mount "$BOOT_PARTITION" /mnt/boot; then
+        error "Failed to mount EFI partition: $BOOT_PARTITION"
+        exit 1
+    fi
+fi
+
+# Verify all mounts
+log "Verifying mount points..."
+if ! mountpoint -q /mnt; then
+    error "Root mount point verification failed"
+    exit 1
 fi
 
 # Configure USTC mirrors
@@ -420,6 +488,24 @@ cat > /mnt/chroot-config.sh << EOF
 BOOT_MODE="$BOOT_MODE"
 DISK="$DISK"
 DESKTOP_ENV="$DESKTOP_ENV"
+USERNAME="$USERNAME"
+HOSTNAME="$HOSTNAME"
+ROOT_PASSWORD="$ROOT_PASSWORD"
+USER_PASSWORD="$USER_PASSWORD"
+
+# Function definitions for chroot environment
+log() {
+    echo -e "\033[0;32m[INFO]\033[0m \$1"
+}
+
+warn() {
+    echo -e "\033[1;33m[WARN]\033[0m \$1"
+}
+
+error() {
+    echo -e "\033[0;31m[ERROR]\033[0m \$1"
+    exit 1
+}
 
 echo "Configuring timezone and locale..."
 # Set timezone
@@ -517,14 +603,37 @@ pacman -S --noconfirm snapper snap-pac grub-btrfs
 # Configure GRUB based on boot mode
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     log "Installing GRUB for UEFI..."
-    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --recheck
+    # Ensure EFI directory exists and is mounted
+    if [[ ! -d /boot/EFI ]]; then
+        mkdir -p /boot/EFI
+    fi
+
+    # Check if EFI partition is properly mounted
+    if ! mountpoint -q /boot; then
+        error "EFI partition not mounted at /boot"
+        exit 1
+    fi
+
+    # Install GRUB for UEFI
+    if ! grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --recheck; then
+        error "GRUB installation failed for UEFI"
+        exit 1
+    fi
 else
     log "Installing GRUB for BIOS..."
-    grub-install --target=i386-pc "$DISK" --recheck
+    # Install GRUB for BIOS
+    if ! grub-install --target=i386-pc "$DISK" --recheck; then
+        error "GRUB installation failed for BIOS"
+        exit 1
+    fi
 fi
 
 # Generate GRUB configuration
-grub-mkconfig -o /boot/grub/grub.cfg
+log "Generating GRUB configuration..."
+if ! grub-mkconfig -o /boot/grub/grub.cfg; then
+    error "GRUB configuration generation failed"
+    exit 1
+fi
 
 # Enable services
 systemctl enable NetworkManager
@@ -542,13 +651,38 @@ echo "$USERNAME:$USER_PASSWORD" | chpasswd
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
 # Configure snapper for root subvolume
-umount /.snapshots
-rm -r /.snapshots
-snapper -c root create-config /
-btrfs subvolume delete /.snapshots
-mkdir /.snapshots
-mount -a
-chmod 750 /.snapshots
+log "Configuring snapper for snapshots..."
+
+# Check if .snapshots is mounted and unmount if necessary
+if mountpoint -q /.snapshots; then
+    umount /.snapshots
+fi
+
+# Remove the directory if it exists
+if [[ -d /.snapshots ]]; then
+    rm -rf /.snapshots
+fi
+
+# Create snapper configuration
+if ! snapper -c root create-config /; then
+    warn "Snapper configuration creation failed, continuing without snapshots"
+else
+    # Remove the automatically created subvolume
+    if [[ -d /.snapshots ]]; then
+        btrfs subvolume delete /.snapshots 2>/dev/null || true
+    fi
+
+    # Create directory and remount
+    mkdir -p /.snapshots
+
+    # Remount all filesystems
+    if mount -a; then
+        chmod 750 /.snapshots
+        log "Snapper configuration completed successfully"
+    else
+        warn "Failed to remount filesystems, snapshots may not work properly"
+    fi
+fi
 
 # Configure snapper settings
 sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
@@ -839,7 +973,40 @@ chmod +x /mnt/chroot-config.sh
 echo
 log "=== Step 3/5: Configuring System ==="
 log "Configuring system settings, users, and bootloader..."
-arch-chroot /mnt ./chroot-config.sh
+
+# Verify chroot script exists and is executable
+if [[ ! -f /mnt/chroot-config.sh ]]; then
+    error "Chroot configuration script not found"
+    exit 1
+fi
+
+if [[ ! -x /mnt/chroot-config.sh ]]; then
+    error "Chroot configuration script is not executable"
+    exit 1
+fi
+
+# Verify essential mount points before chroot
+log "Verifying mount points before chroot..."
+if ! mountpoint -q /mnt; then
+    error "Root filesystem not mounted at /mnt"
+    exit 1
+fi
+
+if [[ "$BOOT_MODE" == "UEFI" ]] && ! mountpoint -q /mnt/boot; then
+    error "EFI partition not mounted at /mnt/boot"
+    exit 1
+fi
+
+# Execute chroot script with error handling
+log "Entering chroot environment..."
+if ! arch-chroot /mnt ./chroot-config.sh; then
+    error "Chroot configuration failed"
+    log "You may need to manually fix the installation"
+    log "The system is mounted at /mnt"
+    exit 1
+fi
+
+log "Chroot configuration completed successfully"
 
 echo
 log "=== Step 4/5: Installing Desktop Environment ==="
@@ -938,4 +1105,3 @@ warn "⚠️  Remove installation media before rebooting!"
 
 echo "Press Enter to finish..."
 read
-EOF
