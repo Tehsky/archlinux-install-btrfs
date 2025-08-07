@@ -168,40 +168,13 @@ git clone https://github.com/Tehsky/archlinux-install-btrfs.git
 cd archlinux-install-btrfs
 ```
 
-#### 方法三：单独下载主脚本
-```bash
-# 下载主安装脚本
-curl -O https://raw.githubusercontent.com/Tehsky/archlinux-install-btrfs/main/install-archlinux-btrfs.sh
-chmod +x install-archlinux-btrfs.sh
-```
-
-### 3. 检查系统环境（可选但推荐）
-
-```bash
-# 运行启动模式检测
-chmod +x modules/check-boot-mode.sh
-./modules/check-boot-mode.sh
-```
-
-### 4. 运行安装脚本
-
-⚠️ **重要**: 此脚本必须以 **root 权限** 运行
-
-```bash
-# 方法一：使用 sudo（推荐）
-sudo ./install-archlinux-btrfs.sh
-
-# 方法二：切换到 root 用户
-su -
-./install-archlinux-btrfs.sh
-
-# 方法三：在 Arch Linux Live 环境中直接运行（已经是root）
+#### 在 Arch Linux Live 环境中直接运行（已经是root）
 ./install-archlinux-btrfs.sh
 ```
 
 > **说明**: 脚本需要root权限来进行磁盘分区、系统安装、用户创建等操作
 
-### 5. 配置安装选项
+###  配置安装选项
 
 安装脚本采用 **前置配置 + 无人值守安装** 的模式：
 
@@ -230,7 +203,7 @@ su -
 - ✅ **无人值守** - 配置完成后自动安装，无需人工干预
 - ✅ **进度显示** - 清晰的安装进度和预计时间
 
-### 6. 等待安装完成
+### 等待安装完成
 
 #### ⏱️ **预计安装时间**
 | 网络环境 | 桌面环境 | 预计时间 |
@@ -301,18 +274,6 @@ su -
 
 安装完成后，系统会提示重启。移除安装介质后重启进入新安装的系统。
 
-### 运行后配置脚本
-
-```bash
-# 如果之前下载了完整项目
-cd archlinux-install-btrfs-main
-./modules/post-install-config.sh
-
-# 或者单独下载后配置脚本
-curl -O https://raw.githubusercontent.com/Tehsky/archlinux-install-btrfs/main/modules/post-install-config.sh
-chmod +x post-install-config.sh
-./post-install-config.sh
-```
 
 ### Hyprland 用户额外配置
 
