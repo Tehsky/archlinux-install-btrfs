@@ -1,23 +1,37 @@
-# Arch Linux 自动安装脚本 (Btrfs + 多桌面环境选择)
+# 🐧 Arch Linux 自动安装脚本
 
-这是一个全自动的 Arch Linux 安装脚本，支持多种桌面环境选择和 Btrfs 快照功能。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
+[![Arch Linux](https://img.shields.io/badge/Arch-Linux-blue.svg)](https://archlinux.org/)
 
-## 主要特性
+一个功能完整的 Arch Linux 自动化安装脚本，支持 Btrfs 文件系统、多桌面环境选择和完整的系统配置。
 
-- 🗂️ **Btrfs 文件系统**：使用 Btrfs 作为根文件系统，支持快照功能
-- 🖥️ **多桌面环境**：支持 Hyprland、KDE、GNOME、XFCE、i3 等
-- 📦 **USTC 镜像源**：使用中科大镜像源加速下载
-- 🇨🇳 **ArchLinuxCN 源**：预配置 ArchLinuxCN 软件源
-- 💾 **磁盘选择**：支持用户选择安装磁盘
-- 📸 **自动快照**：集成 Snapper 自动快照管理
-- 🎯 **精简安装**：每个桌面环境都是精简化配置
+## ✨ 主要特性
 
-## 系统要求
+### 🚀 核心功能
+- 🗂️ **Btrfs 文件系统** - 现代文件系统，支持快照和子卷
+- 🖥️ **多桌面环境** - Hyprland、KDE、GNOME、XFCE、i3、Minimal
+- 🔧 **自动检测** - UEFI/BIOS 启动模式自动识别
+- 💾 **智能分区** - 用户友好的磁盘选择和自动分区
 
-- **启动模式**：支持 UEFI 和 Legacy BIOS（自动检测）
-- **内存**：至少 2GB 内存（推荐 4GB）
-- **存储**：至少 20GB 硬盘空间
-- **网络**：安装过程需要网络连接
+### 🌐 网络优化
+- 📦 **USTC 镜像源** - 中科大镜像源加速下载
+- 🇨🇳 **ArchLinuxCN 源** - 预配置中文社区软件源
+- 📶 **网络工具** - 完整的 WiFi 和蓝牙支持
+
+### 📸 系统管理
+- 🔄 **自动快照** - 集成 Snapper 快照管理
+- ⚡ **性能优化** - SSD 优化、内存管理
+- 🛡️ **安全配置** - 防火墙、用户权限配置
+
+## 📋 系统要求
+
+| 项目 | 最低要求 | 推荐配置 |
+|------|----------|----------|
+| **启动模式** | UEFI/Legacy BIOS | UEFI |
+| **内存** | 2GB RAM | 4GB+ RAM |
+| **存储** | 20GB 硬盘空间 | 50GB+ SSD |
+| **网络** | 有线/无线连接 | 稳定网络连接 |
 
 ## 📁 项目结构
 
@@ -33,42 +47,96 @@ archlinux-install/
 └── 📖 README.md                   # 项目说明
 ```
 
-## 🛠️ 模块说明
+## 🎯 支持的桌面环境
 
-### 🔍 check-boot-mode.sh - 启动模式检测
-检测当前系统的启动模式和硬件信息：
-- UEFI/BIOS启动模式检测
-- 系统架构和硬件信息
-- 磁盘和分区建议
-- 安装前的系统检查
+| 桌面环境 | 类型 | 特点 | 推荐用途 |
+|----------|------|------|----------|
+| **Hyprland** | Wayland 合成器 | 现代化、高性能 | 高级用户、开发者 |
+| **KDE Plasma** | 完整桌面 | 功能丰富、可定制 | 日常使用、办公 |
+| **GNOME** | 现代桌面 | 简洁、易用 | 新手用户 |
+| **XFCE** | 轻量桌面 | 资源占用低 | 老旧硬件 |
+| **i3** | 平铺窗口管理器 | 键盘操作、高效 | 程序员、极客 |
+| **Minimal** | 无桌面环境 | 最小安装 | 服务器、自定义 |
 
-### 📶 wifi-helper.sh - WiFi连接助手
-简化WiFi连接的交互式工具：
-- 扫描可用WiFi网络
-- 交互式连接管理
-- 保存的网络管理
-- 网络状态检查
+## 🛠️ 功能模块详解
 
-### 🌐 check-hyprland-network.sh - Hyprland网络检查
-检查Hyprland桌面的网络支持：
-- NetworkManager状态检查
-- 网络applet安装验证
-- 蓝牙支持检查
+<details>
+<summary>🔍 <strong>check-boot-mode.sh</strong> - 启动模式检测</summary>
+
+**功能说明**：
+- ✅ UEFI/BIOS 启动模式自动检测
+- ✅ 系统架构和硬件信息显示
+- ✅ 可用磁盘列表和建议
+- ✅ 安装前系统兼容性检查
+
+**使用场景**：安装前的系统环境检查
+</details>
+
+<details>
+<summary>📶 <strong>wifi-helper.sh</strong> - WiFi连接助手</summary>
+
+**功能说明**：
+- ✅ 扫描并显示可用 WiFi 网络
+- ✅ 交互式网络连接管理
+- ✅ 已保存网络的管理
+- ✅ 网络连接状态检查
+
+**支持的操作**：
+```bash
+./modules/wifi-helper.sh                    # 交互模式
+./modules/wifi-helper.sh list               # 列出网络
+./modules/wifi-helper.sh connect SSID pass  # 连接网络
+./modules/wifi-helper.sh status             # 查看状态
+```
+</details>
+
+<details>
+<summary>🌐 <strong>check-hyprland-network.sh</strong> - Hyprland网络检查</summary>
+
+**功能说明**：
+- ✅ NetworkManager 服务状态检查
+- ✅ 网络 applet 安装状态验证
+- ✅ 蓝牙硬件和服务检查
+- ✅ Waybar 网络模块配置检查
+
+**检查项目**：
+- NetworkManager 和 nm-applet
+- 蓝牙支持 (bluez + blueman)
+- WiFi 硬件检测
 - 网络连接测试
+</details>
 
-### ⚙️ setup-hyprland-network.sh - Hyprland网络配置
-配置Hyprland的完整网络支持：
-- 安装网络管理组件
-- 配置自启动项
-- 设置Waybar网络模块
-- 创建故障排除脚本
+<details>
+<summary>⚙️ <strong>setup-hyprland-network.sh</strong> - Hyprland网络配置</summary>
 
-### 🔧 post-install-config.sh - 安装后配置
-系统安装后的优化和配置：
-- Pacman配置优化
-- AUR助手安装
-- 开发环境配置
+**功能说明**：
+- ✅ 安装完整的网络管理组件
+- ✅ 配置 Hyprland 自启动项
+- ✅ 设置 Waybar 网络和蓝牙模块
+- ✅ 创建网络故障排除脚本
+
+**自动配置**：
+- NetworkManager + nm-applet
+- 蓝牙支持完整配置
+- Waybar 状态栏集成
+- 网络管理别名和快捷命令
+</details>
+
+<details>
+<summary>🔧 <strong>post-install-config.sh</strong> - 安装后配置</summary>
+
+**功能说明**：
+- ✅ Pacman 配置优化（并行下载、彩色输出）
+- ✅ AUR 助手 (yay) 自动安装
+- ✅ 镜像源配置和优化
+- ✅ 开发环境和字体配置
+
+**优化项目**：
 - 系统性能调优
+- 安全配置和防火墙
+- Shell 环境配置
+- Git 和开发工具设置
+</details>
 
 ## 使用方法
 
@@ -83,41 +151,46 @@ archlinux-install/
    ./modules/wifi-helper.sh
    ```
 
-### 2. 检查启动模式（推荐）
+### 2. 下载安装脚本
 
+#### 方法一：完整下载（推荐）
 ```bash
-# 下载并运行启动模式检测
-curl -O https://raw.githubusercontent.com/your-repo/archlinux-install/main/modules/check-boot-mode.sh
-chmod +x check-boot-mode.sh
-./check-boot-mode.sh
+# 下载完整项目
+curl -L https://github.com/Tehsky/archlinux-install-btrfs/archive/main.zip -o archlinux-install.zip
+unzip archlinux-install.zip
+cd archlinux-install-btrfs-main
 ```
 
+#### 方法二：Git克隆
 ```bash
-# 下载启动模式检测脚本
-curl -O https://raw.githubusercontent.com/your-repo/archlinux-install-btrfs/main/check-boot-mode.sh
-chmod +x check-boot-mode.sh
-
-# 运行检测脚本
-./check-boot-mode.sh
+# 克隆仓库
+git clone https://github.com/Tehsky/archlinux-install-btrfs.git
+cd archlinux-install-btrfs
 ```
 
-### 3. 下载并运行安装脚本
-
+#### 方法三：单独下载主脚本
 ```bash
-# 下载安装脚本
-curl -O https://raw.githubusercontent.com/your-repo/archlinux-install-btrfs/main/install-archlinux-btrfs.sh
-
-# 或者使用 wget
-wget https://raw.githubusercontent.com/your-repo/archlinux-install-btrfs/main/install-archlinux-btrfs.sh
-
-# 给脚本执行权限
+# 下载主安装脚本
+curl -O https://raw.githubusercontent.com/Tehsky/archlinux-install-btrfs/main/install-archlinux-btrfs.sh
 chmod +x install-archlinux-btrfs.sh
-
-# 运行安装脚本
-./install-archlinux-btrfs.sh
 ```
 
-### 3. 按照提示完成安装
+### 3. 检查系统环境（可选但推荐）
+
+```bash
+# 运行启动模式检测
+chmod +x modules/check-boot-mode.sh
+./modules/check-boot-mode.sh
+```
+
+### 4. 运行安装脚本
+
+```bash
+# 开始自动化安装
+sudo ./install-archlinux-btrfs.sh
+```
+
+### 5. 按照提示完成安装
 
 脚本会提示您：
 - 选择安装磁盘
@@ -165,275 +238,263 @@ chmod +x install-archlinux-btrfs.sh
 - **适合**：服务器或自定义安装
 - **包含**：仅基础系统组件
 
-### 4. 安装后配置
+## 🚀 安装后配置
 
-重启进入新系统后，运行后配置脚本：
+### 重启进入新系统
+
+安装完成后，系统会提示重启。移除安装介质后重启进入新安装的系统。
+
+### 运行后配置脚本
 
 ```bash
-# 下载后配置脚本
-curl -O https://raw.githubusercontent.com/your-repo/archlinux-install-btrfs/main/post-install-config.sh
+# 如果之前下载了完整项目
+cd archlinux-install-btrfs-main
+./modules/post-install-config.sh
 
-# 给脚本执行权限
+# 或者单独下载后配置脚本
+curl -O https://raw.githubusercontent.com/Tehsky/archlinux-install-btrfs/main/modules/post-install-config.sh
 chmod +x post-install-config.sh
-
-# 运行后配置脚本
 ./post-install-config.sh
 ```
 
-### 5. 启动 Hyprland
+### Hyprland 用户额外配置
+
+如果您选择了 Hyprland 桌面环境：
 
 ```bash
-# 启动 Hyprland
-start-hyprland
+# 配置网络支持
+./modules/setup-hyprland-network.sh
 
-# 或者直接运行
+# 检查网络配置
+./modules/check-hyprland-network.sh
+
+# 启动 Hyprland
 Hyprland
 ```
 
-## 启动模式支持
+**Hyprland 快捷键**：
+- `Super + Q` - 打开终端
+- `Super + R` - 应用启动器
+- `Super + E` - 文件管理器
+- `Super + C` - 关闭窗口
 
-脚本会自动检测启动模式并相应配置：
+## 💾 技术特性
 
-### UEFI 模式
-- **分区表**：GPT
-- **分区方案**：
-  - EFI 分区 (512MB, FAT32) → `/boot`
-  - 根分区 (剩余空间, Btrfs) → `/`
-- **引导器**：GRUB (x86_64-efi)
+### 🗂️ Btrfs 文件系统优势
 
-### BIOS/Legacy 模式
-- **分区表**：MBR
-- **分区方案**：
-  - 根分区 (全部空间, Btrfs) → `/`
-- **引导器**：GRUB (i386-pc)
+| 特性 | 说明 | 优势 |
+|------|------|------|
+| **子卷** | 独立的文件系统分区 | 灵活的空间管理 |
+| **快照** | 系统状态备份 | 快速回滚和恢复 |
+| **压缩** | 透明数据压缩 | 节省存储空间 |
+| **校验和** | 数据完整性检查 | 防止数据损坏 |
 
-## Btrfs 子卷结构
-
-脚本会创建以下 Btrfs 子卷：
-
-```
-/          -> @
-/home      -> @home
-/var       -> @var
-/tmp       -> @tmp
-/.snapshots -> @snapshots
-```
-
-## 快照管理
-
-### 创建快照
+### 📸 快照管理
 
 ```bash
-# 创建快照（需要 root 权限）
-sudo create-snapshot "描述信息"
-
-# 例如
-sudo create-snapshot "系统更新前"
-sudo create-snapshot "安装新软件前"
-```
-
-### 查看快照
-
-```bash
-# 列出所有快照
+# 查看快照
 sudo snapper -c root list
 
-# 查看快照详情
-sudo snapper -c root info <快照编号>
+# 创建手动快照
+sudo snapper -c root create --description "安装后配置"
+
+# 从快照恢复（GRUB菜单中选择）
+# 重启 → Advanced options → Snapshot 选项
 ```
 
-### 恢复快照
+### 🔧 系统分区方案
 
+#### UEFI 模式（推荐）
+```
+/dev/sdX1  512MB   FAT32   /boot     (EFI系统分区)
+/dev/sdX2  剩余    Btrfs   /         (根分区，包含子卷)
+```
+
+#### BIOS/Legacy 模式
+```
+/dev/sdX1  全部    Btrfs   /         (根分区，包含子卷)
+```
+
+#### Btrfs 子卷结构
+```
+@           →  /           (根目录)
+@home       →  /home       (用户目录)
+@var        →  /var        (系统变量)
+@tmp        →  /tmp        (临时文件)
+@snapshots  →  /.snapshots (快照存储)
+```
+
+## 🛠️ 故障排除
+
+### 常见问题
+
+<details>
+<summary><strong>❓ 安装过程中网络连接失败</strong></summary>
+
+**解决方案**：
 ```bash
-# 恢复到指定快照（谨慎操作）
-sudo snapper -c root undochange <快照编号1>..<快照编号2>
+# 检查网络接口
+ip link show
+
+# 有线网络
+sudo dhcpcd
+
+# 无线网络
+iwctl
+station wlan0 scan
+station wlan0 get-networks
+station wlan0 connect "WiFi名称"
+exit
+
+# 或使用WiFi助手
+./modules/wifi-helper.sh
 ```
+</details>
 
-## Hyprland 网络支持
+<details>
+<summary><strong>❓ GRUB安装失败</strong></summary>
 
-### 自动配置的网络功能
-- **NetworkManager**：自动安装和启用
-- **nm-applet**：网络管理图形界面（系统托盘）
-- **blueman**：蓝牙管理工具
-- **Waybar 网络模块**：状态栏显示网络状态
+**可能原因**：
+- UEFI/BIOS模式检测错误
+- EFI分区挂载问题
+- 磁盘权限问题
 
-### 网络管理
-```bash
-# 查看可用 WiFi 网络
-nmcli device wifi list
-
-# 连接 WiFi
-nmcli device wifi connect "网络名称" password "密码"
-
-# 查看网络状态
-nmcli device status
-
-# 查看已保存的连接
-nmcli connection show
-```
-
-### WiFi 连接助手
-```bash
-# 下载 WiFi 助手脚本
-curl -O https://raw.githubusercontent.com/your-repo/wifi-helper.sh
-chmod +x wifi-helper.sh
-
-# 交互式 WiFi 管理
-./wifi-helper.sh
-
-# 命令行使用
-./wifi-helper.sh list                    # 列出网络
-./wifi-helper.sh connect "WiFi名称" "密码"  # 连接网络
-./wifi-helper.sh status                  # 查看状态
-```
-
-### 网络检测和修复
-```bash
-# 下载网络检测脚本
-curl -O https://raw.githubusercontent.com/your-repo/check-hyprland-network.sh
-chmod +x check-hyprland-network.sh
-
-# 检测网络支持
-./check-hyprland-network.sh
-
-# 网络配置脚本（安装后运行）
-curl -O https://raw.githubusercontent.com/your-repo/setup-hyprland-network.sh
-chmod +x setup-hyprland-network.sh
-./setup-hyprland-network.sh
-```
-
-### 故障排除
-如果网络图标未显示或无法连接：
-```bash
-# 重启网络服务
-sudo systemctl restart NetworkManager
-
-# 手动启动网络图标
-nm-applet --indicator &
-
-# 重新扫描 WiFi
-nmcli device wifi rescan
-```
-
-## Hyprland 快捷键
-
-| 快捷键 | 功能 |
-|--------|------|
-| `Super + Q` | 打开终端 (Kitty) |
-| `Super + C` | 关闭当前窗口 |
-| `Super + M` | 退出 Hyprland |
-| `Super + E` | 打开文件管理器 (Thunar) |
-| `Super + R` | 打开应用启动器 (Wofi) |
-| `Super + V` | 切换浮动模式 |
-| `Super + 1-9` | 切换工作区 |
-| `Super + Shift + 1-9` | 移动窗口到工作区 |
-| `Super + 方向键` | 移动焦点 |
-| `Super + Print` | 截图 |
-
-## 包含的软件
-
-### 系统工具
-- `btrfs-progs` - Btrfs 工具
-- `snapper` - 快照管理
-- `grub` - 引导加载器
-- `networkmanager` - 网络管理
-
-### 桌面环境
-- `hyprland` - Wayland 合成器
-- `waybar` - 状态栏
-- `wofi` - 应用启动器
-- `kitty` - 终端模拟器
-- `thunar` - 文件管理器
-
-### 音频和媒体
-- `pipewire` - 音频服务器
-- `wireplumber` - 会话管理器
-- `pamixer` - 音量控制
-- `playerctl` - 媒体控制
-
-### 输入法
-- `fcitx5` - 输入法框架
-- `fcitx5-chinese-addons` - 中文输入法
-
-### 其他工具
-- `firefox` - 网页浏览器
-- `grim` + `slurp` - 截图工具
-- `brightnessctl` - 亮度控制
-
-## 故障排除
-
-### 网络问题
-```bash
-# 检查网络状态
-nmcli device status
-
-# 连接 WiFi
-nmcli device wifi connect "WiFi名称" password "密码"
-```
-
-### 音频问题
-```bash
-# 重启音频服务
-systemctl --user restart pipewire pipewire-pulse wireplumber
-```
-
-### 输入法问题
-```bash
-# 启动输入法
-fcitx5 &
-
-# 配置输入法
-fcitx5-configtool
-```
-
-### 快照空间不足
-```bash
-# 清理旧快照
-sudo snapper -c root delete <快照编号>
-
-# 设置自动清理
-sudo snapper -c root set-config TIMELINE_CLEANUP=yes
-```
-
-## 自定义配置
-
-### Hyprland 配置
-配置文件位置：`~/.config/hypr/hyprland.conf`
-
-### Waybar 配置
-配置文件位置：`~/.config/waybar/config` 和 `~/.config/waybar/style.css`
-
-### Wofi 配置
-配置文件位置：`~/.config/wofi/config` 和 `~/.config/wofi/style.css`
-
-## 启动模式检测
-
-脚本会自动检测并显示当前启动模式：
-
+**解决方案**：
 ```bash
 # 检查启动模式
-ls /sys/firmware/efi/efivars  # 存在则为 UEFI，否则为 BIOS
+ls /sys/firmware/efi/efivars
+
+# 重新挂载EFI分区（UEFI模式）
+sudo mount /dev/sdX1 /boot
+
+# 重新安装GRUB
+sudo grub-install --target=x86_64-efi --efi-directory=/boot
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+```
+</details>
+
+<details>
+<summary><strong>❓ Hyprland启动黑屏</strong></summary>
+
+**解决方案**：
+```bash
+# 检查显卡驱动
+lspci | grep VGA
+
+# 安装显卡驱动
+sudo pacman -S mesa xf86-video-amdgpu  # AMD
+sudo pacman -S nvidia nvidia-utils     # NVIDIA
+
+# 检查Hyprland配置
+cat ~/.config/hypr/hyprland.conf
+
+# 重新配置网络
+./modules/setup-hyprland-network.sh
+```
+</details>
+
+<details>
+<summary><strong>❓ 系统无法启动</strong></summary>
+
+**解决方案**：
+1. **从快照恢复**：
+   - 重启进入GRUB菜单
+   - 选择 "Advanced options"
+   - 选择可用的快照启动
+
+2. **手动修复**：
+   ```bash
+   # 从Live USB启动
+   # 挂载系统分区
+   sudo mount -o subvol=@ /dev/sdX2 /mnt
+   sudo arch-chroot /mnt
+
+   # 修复GRUB
+   grub-mkconfig -o /boot/grub/grub.cfg
+   ```
+</details>
+
+## 📚 进阶使用
+
+### 🔄 快照管理
+
+```bash
+# 查看所有快照
+sudo snapper -c root list
+
+# 创建手动快照
+sudo snapper -c root create --description "更新前备份"
+
+# 从GRUB菜单恢复快照
+# 重启 → Advanced options → 选择快照
 ```
 
-### 启动模式切换
-如需切换启动模式：
-1. 进入 BIOS/UEFI 设置
-2. 查找 "Boot Mode"、"UEFI/Legacy" 或类似选项
-3. 选择所需模式并保存
-4. 重新启动并重新制作启动盘
+### 🌐 网络管理（Hyprland）
 
-## 注意事项
+```bash
+# WiFi连接
+nmcli device wifi list
+nmcli device wifi connect "SSID" password "password"
 
-1. **备份重要数据**：安装前请备份重要数据，脚本会完全清空选定的磁盘
-2. **网络连接**：确保安装过程中网络连接稳定
-3. **启动模式**：脚本自动支持 UEFI 和 BIOS 模式
-4. **磁盘空间**：建议至少 20GB 空间用于系统安装
-5. **Secure Boot**：如使用 UEFI，建议暂时禁用 Secure Boot
+# 网络状态
+nmcli device status
 
-## 许可证
+# 使用WiFi助手
+./modules/wifi-helper.sh
+```
 
-MIT License
+### 🎨 自定义配置
 
-## 贡献
+```bash
+# Hyprland配置文件
+~/.config/hypr/hyprland.conf
 
-欢迎提交 Issue 和 Pull Request！
+# Waybar配置
+~/.config/waybar/config
+~/.config/waybar/style.css
+
+# 应用启动器配置
+~/.config/wofi/config
+```
+
+## 🤝 贡献指南
+
+欢迎贡献代码和建议！
+
+### 如何贡献
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+### 报告问题
+- 使用 [GitHub Issues](https://github.com/Tehsky/archlinux-install-btrfs/issues)
+- 提供详细的错误信息和系统环境
+- 包含相关的日志文件
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 🙏 致谢
+
+- [Arch Linux](https://archlinux.org/) 社区
+- [Hyprland](https://hyprland.org/) 开发团队
+- [Btrfs](https://btrfs.wiki.kernel.org/) 开发者
+- 所有贡献者和用户
+
+## ⭐ Star History
+
+如果这个项目对您有帮助，请给个 Star ⭐
+
+---
+
+<div align="center">
+
+**🐧 让 Arch Linux 安装更简单！**
+
+[⬆️ 回到顶部](#-arch-linux-自动安装脚本)
+
+</div>
+
