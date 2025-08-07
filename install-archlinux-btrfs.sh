@@ -331,15 +331,27 @@ sleep 2
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     # UEFI partitioning scheme
     log "Creating GPT partition table for UEFI..."
+    echo "  → Creating GPT partition table..."
     parted -s "$DISK" mklabel gpt
+
+    echo "  → Creating EFI System Partition (512MB)..."
     parted -s "$DISK" mkpart primary fat32 1MiB 512MiB
+
+    echo "  → Setting ESP flag on EFI partition..."
     parted -s "$DISK" set 1 esp on
+
+    echo "  → Creating root partition (remaining space)..."
     parted -s "$DISK" mkpart primary btrfs 512MiB 100%
 
     # Wait for partitions to be created
+    echo "  → Waiting for partition table to be updated..."
     sleep 3
     partprobe "$DISK" 2>/dev/null || true
     sleep 2
+
+    # Display partition table
+    echo "  → Partition table created:"
+    parted "$DISK" print 2>/dev/null | grep -E "Number|^ *[0-9]" || true
 
     # Determine partition names for UEFI (improved detection)
     if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]] || [[ "$DISK" == *"loop"* ]]; then
@@ -361,20 +373,33 @@ if [[ "$BOOT_MODE" == "UEFI" ]]; then
 
     # Format partitions for UEFI
     log "Formatting partitions for UEFI..."
+    echo "  → Formatting EFI partition ($BOOT_PARTITION) as FAT32..."
     mkfs.fat -F32 "$BOOT_PARTITION"
+
+    echo "  → Formatting root partition ($ROOT_PARTITION) as Btrfs..."
     mkfs.btrfs -f "$ROOT_PARTITION"
 
 else
     # BIOS partitioning scheme
     log "Creating MBR partition table for BIOS..."
+    echo "  → Creating MBR partition table..."
     parted -s "$DISK" mklabel msdos
+
+    echo "  → Creating root partition (full disk)..."
     parted -s "$DISK" mkpart primary btrfs 1MiB 100%
+
+    echo "  → Setting boot flag on root partition..."
     parted -s "$DISK" set 1 boot on
 
     # Wait for partitions to be created
+    echo "  → Waiting for partition table to be updated..."
     sleep 3
     partprobe "$DISK" 2>/dev/null || true
     sleep 2
+
+    # Display partition table
+    echo "  → Partition table created:"
+    parted "$DISK" print 2>/dev/null | grep -E "Number|^ *[0-9]" || true
 
     # Determine partition names for BIOS (improved detection)
     if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]] || [[ "$DISK" == *"loop"* ]]; then
@@ -393,6 +418,7 @@ else
 
     # Format partitions for BIOS
     log "Formatting partitions for BIOS..."
+    echo "  → Formatting root partition ($ROOT_PARTITION) as Btrfs..."
     mkfs.btrfs -f "$ROOT_PARTITION"
 fi
 
@@ -410,10 +436,19 @@ fi
 
 # Create subvolumes
 log "Creating btrfs subvolumes..."
+echo "  → Creating @ (root) subvolume..."
 btrfs subvolume create /mnt/@
+
+echo "  → Creating @home (user data) subvolume..."
 btrfs subvolume create /mnt/@home
+
+echo "  → Creating @var (system data) subvolume..."
 btrfs subvolume create /mnt/@var
+
+echo "  → Creating @tmp (temporary files) subvolume..."
 btrfs subvolume create /mnt/@tmp
+
+echo "  → Creating @snapshots (snapshots) subvolume..."
 btrfs subvolume create /mnt/@snapshots
 
 # Unmount to remount with subvolumes
@@ -510,7 +545,54 @@ error() {
 echo "Configuring timezone and locale..."
 # Set timezone
 ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-hwclock --systohc
+
+# Configure hardware clock for dual boot compatibility
+log "Configuring hardware clock for dual boot..."
+# Set hardware clock to UTC (recommended for dual boot with Windows)
+hwclock --systohc --utc
+
+# Configure systemd-timesyncd for better time synchronization
+log "Configuring time synchronization..."
+cat > /etc/systemd/timesyncd.conf << 'TIME_EOF'
+[Time]
+NTP=0.arch.pool.ntp.org 1.arch.pool.ntp.org 2.arch.pool.ntp.org 3.arch.pool.ntp.org
+FallbackNTP=0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org
+RootDistanceMaxSec=5
+PollIntervalMinSec=32
+PollIntervalMaxSec=2048
+TIME_EOF
+
+# Enable time synchronization
+systemctl enable systemd-timesyncd
+
+# Create script to fix Windows time issues
+log "Creating Windows time sync fix script..."
+cat > /usr/local/bin/fix-windows-time.sh << 'WINTIME_EOF'
+#!/bin/bash
+# Fix Windows time synchronization issues in dual boot
+
+echo "Fixing Windows time synchronization..."
+
+# Set hardware clock to local time (Windows compatible)
+timedatectl set-local-rtc 1 --adjust-system-clock
+
+# Sync with NTP
+timedatectl set-ntp true
+
+# Force time sync
+systemctl restart systemd-timesyncd
+sleep 2
+
+# Show current time settings
+echo "Current time settings:"
+timedatectl status
+
+echo "Windows time sync fix applied!"
+echo "Note: This sets hardware clock to local time for Windows compatibility."
+echo "To revert to UTC: timedatectl set-local-rtc 0 --adjust-system-clock"
+WINTIME_EOF
+
+chmod +x /usr/local/bin/fix-windows-time.sh
 
 # Configure locale
 echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
@@ -537,22 +619,14 @@ Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/\$repo/os/\$arch
 Server = https://geo.mirror.pkgbuild.com/\$repo/os/\$arch
 MIRROR_EOF
 
-# Add archlinuxcn repository
-cat >> /etc/pacman.conf << 'PACMAN_EOF'
-
-[archlinuxcn]
-Server = https://mirrors.ustc.edu.cn/archlinuxcn/\$arch
-PACMAN_EOF
-
-# Update package database and install archlinuxcn-keyring
+# Update package database first
 pacman -Sy --noconfirm
-pacman -S --noconfirm archlinuxcn-keyring
 
 echo "Installing essential packages..."
-# Install essential packages
+# Install essential packages (including os-prober for dual boot detection)
 pacman -S --noconfirm grub efibootmgr networkmanager \
     wireless_tools wpa_supplicant dialog os-prober mtools dosfstools \
-    reflector git curl wget vim nano sudo zsh \
+    reflector git curl wget vim nano sudo zsh ntfs-3g \
     pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
 
 # Install desktop environment specific packages
@@ -562,13 +636,18 @@ case "$DESKTOP_ENV" in
         pacman -S --noconfirm hyprland waybar wofi kitty thunar firefox \
             xdg-desktop-portal-hyprland polkit-gnome grim slurp wl-clipboard \
             brightnessctl playerctl pamixer ttf-font-awesome \
-            network-manager-applet blueman
+            network-manager-applet blueman sddm
+
+        log "Enabling SDDM display manager for Hyprland..."
+        systemctl enable sddm
         ;;
     "kde")
         log "Installing KDE Plasma (minimal)..."
         pacman -S --noconfirm plasma-desktop plasma-nm plasma-pa \
             konsole dolphin kate firefox sddm \
             xdg-desktop-portal-kde breeze-gtk kde-gtk-config
+
+        log "Enabling SDDM display manager for KDE..."
         systemctl enable sddm
         ;;
     "gnome")
@@ -576,20 +655,26 @@ case "$DESKTOP_ENV" in
         pacman -S --noconfirm gnome-shell gnome-terminal nautilus \
             gnome-control-center gnome-session gdm firefox \
             xdg-desktop-portal-gnome gnome-keyring
+
+        log "Enabling GDM display manager for GNOME..."
         systemctl enable gdm
         ;;
     "xfce")
         log "Installing XFCE (lightweight)..."
-        pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter \
+        pacman -S --noconfirm xfce4 xfce4-goodies sddm \
             firefox thunar-archive-plugin xarchiver
-        systemctl enable lightdm
+
+        log "Enabling SDDM display manager for XFCE..."
+        systemctl enable sddm
         ;;
     "i3")
         log "Installing i3 (tiling window manager)..."
         pacman -S --noconfirm i3-wm i3status i3lock dmenu \
-            xorg-server xorg-xinit lightdm lightdm-gtk-greeter \
+            xorg-server xorg-xinit sddm \
             alacritty firefox feh picom
-        systemctl enable lightdm
+
+        log "Enabling SDDM display manager for i3..."
+        systemctl enable sddm
         ;;
     "minimal")
         log "Installing minimal system (no desktop environment)..."
@@ -599,6 +684,21 @@ esac
 
 # Install snapshot tools
 pacman -S --noconfirm snapper snap-pac grub-btrfs
+
+# Configure GRUB for dual boot support
+log "Configuring GRUB with dual boot support..."
+
+# Enable os-prober for dual boot detection
+sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
+echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub
+
+# Configure GRUB timeout for dual boot
+sed -i 's/GRUB_TIMEOUT=5/GRUB_TIMEOUT=10/' /etc/default/grub
+
+# Add Windows time sync fix to GRUB configuration
+if ! grep -q "GRUB_CMDLINE_LINUX_DEFAULT.*rtc" /etc/default/grub; then
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="rtc_cmos_read_time=1 /' /etc/default/grub
+fi
 
 # Configure GRUB based on boot mode
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
@@ -628,16 +728,102 @@ else
     fi
 fi
 
-# Generate GRUB configuration
-log "Generating GRUB configuration..."
+# Detect other operating systems
+log "Detecting other operating systems..."
+os-prober || warn "No other operating systems detected or os-prober failed"
+
+# Generate GRUB configuration with dual boot support
+log "Generating GRUB configuration with dual boot support..."
 if ! grub-mkconfig -o /boot/grub/grub.cfg; then
     error "GRUB configuration generation failed"
     exit 1
 fi
 
-# Enable services
+# Check if other OS entries were added
+if grep -q "Windows\|Ubuntu\|Debian\|Fedora\|openSUSE" /boot/grub/grub.cfg; then
+    log "Other operating systems detected and added to GRUB menu"
+else
+    warn "No other operating systems found in GRUB configuration"
+fi
+
+# Enable essential services
+log "Enabling essential services..."
 systemctl enable NetworkManager
 systemctl enable reflector.timer
+
+# Ensure NetworkManager is properly configured
+log "Configuring NetworkManager..."
+# Create NetworkManager configuration for better connectivity
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/20-connectivity.conf << 'NM_EOF'
+[connectivity]
+uri=http://www.archlinux.org/check_network_status.txt
+interval=300
+response=NetworkManager is online
+
+[main]
+dns=default
+systemd-resolved=false
+NM_EOF
+
+# Configure DNS fallback
+cat > /etc/NetworkManager/conf.d/30-dns.conf << 'NM_EOF'
+[main]
+dns=default
+
+[global-dns-domain-*]
+servers=8.8.8.8,8.8.4.4,1.1.1.1,1.0.0.1
+NM_EOF
+
+# Create network startup script for better connectivity
+log "Creating network startup script..."
+cat > /usr/local/bin/network-startup.sh << 'NET_EOF'
+#!/bin/bash
+# Network startup script for better connectivity
+
+# Wait for NetworkManager to be ready
+sleep 5
+
+# Restart NetworkManager to ensure proper initialization
+systemctl restart NetworkManager
+
+# Wait for network interfaces to be ready
+sleep 3
+
+# Try to connect to any available network
+nmcli device wifi rescan 2>/dev/null || true
+sleep 2
+
+# Enable all network devices
+for device in \$(nmcli device | grep -E "wifi|ethernet" | awk '{print \$1}'); do
+    nmcli device set \$device autoconnect yes 2>/dev/null || true
+done
+
+# Log network status
+echo "\$(date): Network startup completed" >> /var/log/network-startup.log
+nmcli device status >> /var/log/network-startup.log 2>&1
+NET_EOF
+
+chmod +x /usr/local/bin/network-startup.sh
+
+# Create systemd service for network startup
+cat > /etc/systemd/system/network-startup.service << 'SERVICE_EOF'
+[Unit]
+Description=Network Startup Script
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/network-startup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+
+# Enable the network startup service
+systemctl enable network-startup.service
 
 # Set root password
 echo "root:$ROOT_PASSWORD" | chpasswd
@@ -964,6 +1150,27 @@ fi
 
 # Ensure correct ownership of entire home directory
 chown -R $USERNAME:$USERNAME /home/$USERNAME
+
+# Configure archlinuxcn repository (at the end for better stability)
+log "Configuring archlinuxcn repository..."
+cat >> /etc/pacman.conf << 'PACMAN_EOF'
+
+# ArchLinuxCN Repository
+[archlinuxcn]
+Server = https://mirrors.ustc.edu.cn/archlinuxcn/\$arch
+PACMAN_EOF
+
+# Update package database and install archlinuxcn-keyring
+log "Installing archlinuxcn keyring..."
+pacman -Sy --noconfirm
+if ! pacman -S --noconfirm archlinuxcn-keyring; then
+    warn "Failed to install archlinuxcn-keyring, removing repository..."
+    # Remove the archlinuxcn section if keyring installation fails
+    sed -i '/# ArchLinuxCN Repository/,/Server = https:\/\/mirrors.ustc.edu.cn\/archlinuxcn/d' /etc/pacman.conf
+    pacman -Sy --noconfirm
+else
+    log "ArchLinuxCN repository configured successfully"
+fi
 
 EOF
 
