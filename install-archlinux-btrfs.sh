@@ -463,7 +463,7 @@ fi
 
 # Create mount points
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
-    mkdir -p /mnt/{boot,home,var,tmp,.snapshots}
+    mkdir -p /mnt/{boot/efi,home,var,tmp,.snapshots}
 else
     mkdir -p /mnt/{home,var,tmp,.snapshots}
 fi
@@ -478,7 +478,7 @@ mount -o noatime,compress=zstd,space_cache=v2,subvol=@snapshots "$ROOT_PARTITION
 # Mount EFI partition for UEFI mode
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     log "Mounting EFI partition..."
-    if ! mount "$BOOT_PARTITION" /mnt/boot; then
+    if ! mount "$BOOT_PARTITION" /mnt/boot/efi; then
         error "Failed to mount EFI partition: $BOOT_PARTITION"
         exit 1
     fi
@@ -704,18 +704,18 @@ fi
 if [[ "$BOOT_MODE" == "UEFI" ]]; then
     log "Installing GRUB for UEFI..."
     # Ensure EFI directory exists and is mounted
-    if [[ ! -d /boot/EFI ]]; then
-        mkdir -p /boot/EFI
+    if [[ ! -d /boot/efi/EFI ]]; then
+        mkdir -p /boot/efi/EFI
     fi
 
     # Check if EFI partition is properly mounted
-    if ! mountpoint -q /boot; then
-        error "EFI partition not mounted at /boot"
+    if ! mountpoint -q /boot/efi; then
+        error "EFI partition not mounted at /boot/efi"
         exit 1
     fi
 
     # Install GRUB for UEFI
-    if ! grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --recheck; then
+    if ! grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; then
         error "GRUB installation failed for UEFI"
         exit 1
     fi
@@ -1199,8 +1199,8 @@ if ! mountpoint -q /mnt; then
     exit 1
 fi
 
-if [[ "$BOOT_MODE" == "UEFI" ]] && ! mountpoint -q /mnt/boot; then
-    error "EFI partition not mounted at /mnt/boot"
+if [[ "$BOOT_MODE" == "UEFI" ]] && ! mountpoint -q /mnt/boot/efi; then
+    error "EFI partition not mounted at /mnt/boot/efi"
     exit 1
 fi
 
